@@ -49,7 +49,7 @@ export const T = {
       remaining: "Restantes", reward: "Recompensa / 30s",
       verified: "Verificado",
       title: "Música", artist: "Artista", duration: "Duración",
-      genre: "Género", reward: "Recompensa", thumb: "Portada",
+      genre: "Género", thumb: "Portada",
     },
     plans: {
       current: "Plan actual", upgrade: "Mejorar plan",
