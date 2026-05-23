@@ -1,5 +1,4 @@
 // LangSelector.jsx
-/* eslint-disable react/prop-types */
 import { useState } from "react";
 import { ChevronDown, Check } from "lucide-react";
 import { C } from "../theme";
@@ -34,7 +33,7 @@ export function LangSelector({ compact }) {
           background: C.surface, border: `1px solid ${C.border}`,
           borderRadius: 10, zIndex: 200, overflow: "hidden", minWidth: 140,
         }}>
-          {Object.entries(LANGS).map(([code, name]) => (
+          {LANGS.map(({ code, label: name }) => (
             <button
               key={code}
               onClick={() => { setLang(code); setOpen(false); }}
