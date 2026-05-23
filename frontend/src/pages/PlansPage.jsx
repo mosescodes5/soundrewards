@@ -10,7 +10,7 @@ export default function PlansPage() {
   const { t } = useLang();
   const { isMobile } = useBreakpoints();
   const p = t.plans;
-  const [currentPlan] = useState("gold");
+  const [currentPlan] = useState("beginner");
 
   return (
     <div>
