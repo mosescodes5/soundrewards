@@ -1,5 +1,4 @@
-// App.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { T } from "./i18n";
 import { LangCtx } from "./context/LangContext";
 import { AppLayout } from "./components/AppLayout";
@@ -15,60 +14,83 @@ import LeaderboardPage from "./pages/LeaderboardPage";
 import SettingsPage    from "./pages/SettingsPage";
 import AdminPage       from "./pages/AdminPage";
 
-// Pages that need the AppLayout wrapper (sidebar + topbar)
-const AUTHED_KEYS = ["dashboard","music","plans","wallet","referral","leaderboard","settings","admin"];
+const AUTHED_PAGES = ["dashboard","music","plans","wallet","referral","leaderboard","settings","admin"];
+
+// Read logged-in user from localStorage
+function getStoredUser() {
+  try {
+    const u = localStorage.getItem("sr_user");
+    const t = localStorage.getItem("sr_token");
+    if (u && t) return JSON.parse(u);
+  } catch { /* ignore */ }
+  return null;
+}
 
 export default function App() {
-  const [lang, setLang] = useState("es");
-  const [page, setPage] = useState("landing");
+  const [lang, setLang]   = useState("es");
+  const [page, setPage]   = useState("landing");
+  const [user, setUser]   = useState(getStoredUser);
   const t = T[lang];
 
-  // Guard: if someone somehow ends up on an authed page without a token,
-  // send them back to landing instead of showing a broken screen.
-  const handleNavigate = (dest) => {
-    if (AUTHED_KEYS.includes(dest) && !localStorage.getItem("sr_token")) {
-      setPage("landing");
+  // On mount: if token exists go straight to dashboard
+  useEffect(() => {
+    const stored = getStoredUser();
+    if (stored) setPage("dashboard");
+  }, []);
+
+  // Navigate with auth guard
+  const navigate = (target) => {
+    if (AUTHED_PAGES.includes(target) && !getStoredUser()) {
+      setPage("login");
       return;
     }
-    setPage(dest);
+    setPage(target);
   };
 
-  // Sign-out clears storage and goes home
+  // Called by AuthPage after successful login/register
+  const handleAuth = (userData) => {
+    setUser(userData);
+    setPage("dashboard");
+  };
+
+  // Called by logout button
   const handleSignOut = () => {
     localStorage.removeItem("sr_token");
     localStorage.removeItem("sr_user");
+    setUser(null);
     setPage("landing");
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
-  const isLanding = page === "landing";
-  const isAuth    = page === "login" || page === "register";
-  const isAuthed  = AUTHED_KEYS.includes(page);
-
-  const pageMap = {
-    dashboard:   <Dashboard />,
-    music:       <MusicPage />,
-    plans:       <PlansPage />,
-    wallet:      <WalletPage />,
-    referral:    <ReferralPage />,
-    leaderboard: <LeaderboardPage />,
-    settings:    <SettingsPage />,
-    admin:       <AdminPage />,
+  const renderPage = () => {
+    if (page === "landing") return <Landing onNavigate={navigate} />;
+    if (page === "login" || page === "register") {
+      // Already logged in — go to dashboard
+      if (user) { setPage("dashboard"); return null; }
+      return <AuthPage mode={page} onNavigate={navigate} onAuth={handleAuth} />;
+    }
+    if (AUTHED_PAGES.includes(page)) {
+      const pages = {
+        dashboard:   <Dashboard user={user} />,
+        music:       <MusicPage user={user} />,
+        plans:       <PlansPage user={user} />,
+        wallet:      <WalletPage user={user} />,
+        referral:    <ReferralPage user={user} />,
+        leaderboard: <LeaderboardPage />,
+        settings:    <SettingsPage user={user} setUser={setUser} />,
+        admin:       <AdminPage />,
+      };
+      return (
+        <AppLayout page={page} onNavigate={navigate} onSignOut={handleSignOut} user={user}>
+          {pages[page]}
+        </AppLayout>
+      );
+    }
+    return <Landing onNavigate={navigate} />;
   };
 
   return (
     <LangCtx.Provider value={{ lang, t, setLang }}>
-      {isLanding && <Landing onNavigate={handleNavigate} />}
-
-      {isAuth && (
-        <AuthPage mode={page} onNavigate={handleNavigate} />
-      )}
-
-      {isAuthed && pageMap[page] && (
-        <AppLayout page={page} onNavigate={handleNavigate} onSignOut={handleSignOut}>
-          {pageMap[page]}
-        </AppLayout>
-      )}
+      {renderPage()}
     </LangCtx.Provider>
   );
 }
