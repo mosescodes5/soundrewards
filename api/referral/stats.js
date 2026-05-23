@@ -1,0 +1,40 @@
+import mongoose from 'mongoose';
+import { connectDB, setCors, handleOptions, requireAuth } from '../_middleware.js';
+
+const COMMISSION = { beginner: 0.02, silver: 0.05, gold: 0.08, elite: 0.12 };
+
+const userSchema = new mongoose.Schema({
+  username: String, country: String, activePlan: String,
+  totalEarned:  { type: Number, default: 0 },
+  referralCode: String,
+  referredBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+}, { timestamps: true });
+
+const User = mongoose.models.User || mongoose.model('User', userSchema);
+
+export default async function handler(req, res) {
+  setCors(res);
+  if (handleOptions(req, res)) return;
+  if (req.method !== 'GET') return res.status(405).end();
+  const decoded = requireAuth(req, res);
+  if (!decoded) return;
+  await connectDB();
+
+  const user = await User.findById(decoded.id);
+  if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+  const referrals = await User.find({ referredBy: decoded.id })
+    .select('username country activePlan totalEarned createdAt')
+    .sort({ createdAt: -1 });
+
+  const rate = COMMISSION[user.activePlan] || 0.02;
+  const totalEarned = referrals.reduce((s, r) => s + r.totalEarned * rate, 0);
+
+  res.json({
+    referralCode: user.referralCode,
+    commissionRate: rate,
+    totalReferrals: referrals.length,
+    totalReferralEarnings: Math.round(totalEarned * 100) / 100,
+    referrals: referrals.map(r => ({ username: r.username, country: r.country, plan: r.activePlan, joined: r.createdAt, active: true })),
+  });
+}
