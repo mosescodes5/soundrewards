@@ -1,3 +1,4 @@
+/* global process */
 import mongoose from 'mongoose';
 import { connectDB, setCors, handleOptions, requireAuth } from '../_middleware.js';
 
@@ -14,9 +15,8 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const earningSchema = new mongoose.Schema({
-  userId:      { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  trackId:     String,
-  amount:      Number,
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  trackId: String, amount: Number,
   completedAt: { type: Date, default: Date.now },
 });
 
@@ -26,39 +26,38 @@ const Earning = mongoose.models.Earning || mongoose.model('Earning', earningSche
 export default async function handler(req, res) {
   setCors(res);
   if (handleOptions(req, res)) return;
-  if (req.method !== 'POST') return res.status(405).end();
-
+  if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
   const decoded = requireAuth(req, res);
   if (!decoded) return;
-  await connectDB();
+  try {
+    await connectDB();
+    const { trackId, reward = 0.45 } = req.body || {};
+    if (!trackId) return res.status(400).json({ message: 'trackId required' });
 
-  const { trackId, reward = 0.45 } = req.body;
-  if (!trackId) return res.status(400).json({ message: 'trackId requerido' });
+    const user = await User.findById(decoded.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-  const user = await User.findById(decoded.id);
-  if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+    const now = new Date();
+    if (now.toDateString() !== new Date(user.lastDailyReset).toDateString()) {
+      user.dailyEarned = 0; user.lastDailyReset = now;
+    }
 
-  const now = new Date();
-  if (now.toDateString() !== new Date(user.lastDailyReset).toDateString()) {
-    user.dailyEarned = 0;
-    user.lastDailyReset = now;
+    const limit = DAILY_LIMITS[user.activePlan] || 1.5;
+    if (user.dailyEarned >= limit)
+      return res.status(400).json({ message: 'Daily limit reached', dailyEarned: user.dailyEarned, limit });
+
+    const todayKey = trackId + ':' + now.toDateString();
+    if (user.completedTracks && user.completedTracks.includes(todayKey))
+      return res.status(400).json({ message: 'Already completed today' });
+
+    const actualReward = Math.min(reward, limit - user.dailyEarned);
+    user.balance += actualReward; user.totalEarned += actualReward; user.dailyEarned += actualReward;
+    user.completedTracks = [...(user.completedTracks || []), todayKey].slice(-200);
+    await user.save();
+    await Earning.create({ userId: user._id, trackId, amount: actualReward });
+
+    return res.json({ success: true, reward: actualReward, balance: user.balance, dailyEarned: user.dailyEarned, limit });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
   }
-
-  const limit = DAILY_LIMITS[user.activePlan] || 1.5;
-  if (user.dailyEarned >= limit)
-    return res.status(400).json({ message: 'Limite diario alcanzado', dailyEarned: user.dailyEarned, limit });
-
-  const todayKey = trackId + ':' + now.toDateString();
-  if (user.completedTracks && user.completedTracks.includes(todayKey))
-    return res.status(400).json({ message: 'Ya completaste esta pista hoy' });
-
-  const actualReward = Math.min(reward, limit - user.dailyEarned);
-  user.balance     += actualReward;
-  user.totalEarned += actualReward;
-  user.dailyEarned += actualReward;
-  user.completedTracks = [...(user.completedTracks || []), todayKey].slice(-200);
-  await user.save();
-  await Earning.create({ userId: user._id, trackId, amount: actualReward });
-
-  res.json({ success: true, reward: actualReward, balance: user.balance, dailyEarned: user.dailyEarned, limit });
 }

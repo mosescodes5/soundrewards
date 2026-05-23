@@ -1,3 +1,4 @@
+/* global process */
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 
@@ -6,12 +7,12 @@ let isConnected = false;
 export async function connectDB() {
   if (isConnected && mongoose.connection.readyState === 1) return;
   if (!process.env.MONGODB_URI) throw new Error('MONGODB_URI not set');
-  await mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
+  await mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 10000 });
   isConnected = true;
 }
 
 export function setCors(res) {
-  res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
 }

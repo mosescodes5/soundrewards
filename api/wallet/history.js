@@ -1,21 +1,21 @@
+/* global process */
 import mongoose from 'mongoose';
 import { connectDB, setCors, handleOptions, requireAuth } from '../_middleware.js';
 
-const txSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  type: String, amount: Number, currency: String,
-  walletAddr: String, status: String, txHash: String, plisioId: String,
-}, { timestamps: true });
-
+const txSchema = new mongoose.Schema({ userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, type: String, amount: Number, currency: String, walletAddr: String, status: String, txHash: String, plisioId: String }, { timestamps: true });
 const Transaction = mongoose.models.Transaction || mongoose.model('Transaction', txSchema);
 
 export default async function handler(req, res) {
   setCors(res);
   if (handleOptions(req, res)) return;
-  if (req.method !== 'GET') return res.status(405).end();
+  if (req.method !== 'GET') return res.status(405).json({ message: 'Method not allowed' });
   const decoded = requireAuth(req, res);
   if (!decoded) return;
-  await connectDB();
-  const txns = await Transaction.find({ userId: decoded.id }).sort({ createdAt: -1 }).limit(50);
-  res.json({ transactions: txns });
+  try {
+    await connectDB();
+    const txns = await Transaction.find({ userId: decoded.id }).sort({ createdAt: -1 }).limit(50);
+    return res.json({ transactions: txns });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
 }
