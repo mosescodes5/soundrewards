@@ -15,6 +15,7 @@ const txSchema = new mongoose.Schema({
   walletAddr: String,
   status:     { type: String, default: 'pending' },
   txHash:     String,
+  plisioId:   String,
 }, { timestamps: true });
 
 const User        = mongoose.models.User        || mongoose.model('User', userSchema);

@@ -4,17 +4,17 @@ import mongoose from 'mongoose';
 import { connectDB, setCors, handleOptions } from '../_middleware.js';
 
 const userSchema = new mongoose.Schema({
-  username:     { type: String, required: true, unique: true, trim: true },
-  email:        { type: String, required: true, unique: true, lowercase: true },
-  password:     { type: String, required: true, select: false },
-  country:      { type: String, enum: ['US','MX','HN'], required: true },
-  referralCode: { type: String, unique: true },
-  referredBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-  balance:      { type: Number, default: 0 },
-  totalEarned:  { type: Number, default: 0 },
-  activePlan:   { type: String, default: 'beginner' },
-  role:         { type: String, enum: ['user','admin'], default: 'user' },
-  dailyEarned:  { type: Number, default: 0 },
+  username:       { type: String, required: true, unique: true, trim: true },
+  email:          { type: String, required: true, unique: true, lowercase: true },
+  password:       { type: String, required: true, select: false },
+  country:        { type: String, enum: ['US','MX','HN'], required: true },
+  referralCode:   { type: String, unique: true },
+  referredBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  balance:        { type: Number, default: 0 },
+  totalEarned:    { type: Number, default: 0 },
+  activePlan:     { type: String, default: 'beginner' },
+  role:           { type: String, enum: ['user','admin'], default: 'user' },
+  dailyEarned:    { type: Number, default: 0 },
   lastDailyReset: { type: Date, default: Date.now },
 }, { timestamps: true });
 

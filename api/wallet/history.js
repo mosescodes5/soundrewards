@@ -4,7 +4,7 @@ import { connectDB, setCors, handleOptions, requireAuth } from '../_middleware.j
 const txSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   type: String, amount: Number, currency: String,
-  walletAddr: String, status: String, txHash: String,
+  walletAddr: String, status: String, txHash: String, plisioId: String,
 }, { timestamps: true });
 
 const Transaction = mongoose.models.Transaction || mongoose.model('Transaction', txSchema);

@@ -1,9 +1,9 @@
-# setup.ps1 - Run from inside your soundrewards/ folder
-# Usage: powershell -ExecutionPolicy Bypass -File setup.ps1
+# setup.ps1 - Complete SoundRewards setup including Plisio endpoints
+# Run with: powershell -ExecutionPolicy Bypass -File setup.ps1
 
-function Write-OK   { param($m) Write-Host "OK: $m" -ForegroundColor Green }
-function Write-Info { param($m) Write-Host "-> $m" -ForegroundColor Yellow }
-function Write-Err  { param($m) Write-Host "ERROR: $m" -ForegroundColor Red; exit 1 }
+function Write-OK   { param($m) Write-Host "  [OK] $m" -ForegroundColor Green }
+function Write-Info { param($m) Write-Host "  [..] $m" -ForegroundColor Yellow }
+function Write-Err  { param($m) Write-Host "  [!!] $m" -ForegroundColor Red; exit 1 }
 
 function New-TextFile {
     param([string]$FilePath, [string]$Content)
@@ -15,21 +15,23 @@ function New-TextFile {
     [System.IO.File]::WriteAllText($fullPath, $Content, (New-Object System.Text.UTF8Encoding $false))
 }
 
+Clear-Host
 Write-Host ""
-Write-Host "  SoundRewards - Vercel restructure script" -ForegroundColor Cyan
-Write-Host "  -----------------------------------------" -ForegroundColor Cyan
+Write-Host "  ============================================" -ForegroundColor Cyan
+Write-Host "    SoundRewards - Full Vercel Setup Script  " -ForegroundColor Cyan
+Write-Host "  ============================================" -ForegroundColor Cyan
 Write-Host ""
 
 if (!(Test-Path "frontend")) { Write-Err "Run this script from inside your soundrewards/ folder." }
 
-# ── 1. Create api/ folders ────────────────────────────────────────────────────
-Write-Info "Creating api/ directory structure..."
-foreach ($d in @("api/auth","api/music","api/wallet","api/referral","api/admin")) {
+# ─────────────────────────────────────────────────────────────────────────────
+Write-Info "Creating all api/ folders..."
+foreach ($d in @("api/auth","api/music","api/wallet","api/referral","api/admin","api/payment","api/withdrawal")) {
     New-Item -ItemType Directory -Path $d -Force | Out-Null
 }
 Write-OK "api/ folders created"
 
-# ── 2. api/_middleware.js ─────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 Write-Info "Writing api/_middleware.js..."
 New-TextFile "api/_middleware.js" @"
 import mongoose from 'mongoose';
@@ -65,7 +67,7 @@ export function requireAuth(req, res) {
 "@
 Write-OK "api/_middleware.js"
 
-# ── 3. api/auth/register.js ───────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 Write-Info "Writing api/auth/register.js..."
 New-TextFile "api/auth/register.js" @"
 import bcrypt from 'bcryptjs';
@@ -74,17 +76,17 @@ import mongoose from 'mongoose';
 import { connectDB, setCors, handleOptions } from '../_middleware.js';
 
 const userSchema = new mongoose.Schema({
-  username:     { type: String, required: true, unique: true, trim: true },
-  email:        { type: String, required: true, unique: true, lowercase: true },
-  password:     { type: String, required: true, select: false },
-  country:      { type: String, enum: ['US','MX','HN'], required: true },
-  referralCode: { type: String, unique: true },
-  referredBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-  balance:      { type: Number, default: 0 },
-  totalEarned:  { type: Number, default: 0 },
-  activePlan:   { type: String, default: 'beginner' },
-  role:         { type: String, enum: ['user','admin'], default: 'user' },
-  dailyEarned:  { type: Number, default: 0 },
+  username:       { type: String, required: true, unique: true, trim: true },
+  email:          { type: String, required: true, unique: true, lowercase: true },
+  password:       { type: String, required: true, select: false },
+  country:        { type: String, enum: ['US','MX','HN'], required: true },
+  referralCode:   { type: String, unique: true },
+  referredBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  balance:        { type: Number, default: 0 },
+  totalEarned:    { type: Number, default: 0 },
+  activePlan:     { type: String, default: 'beginner' },
+  role:           { type: String, enum: ['user','admin'], default: 'user' },
+  dailyEarned:    { type: Number, default: 0 },
   lastDailyReset: { type: Date, default: Date.now },
 }, { timestamps: true });
 
@@ -123,7 +125,7 @@ export default async function handler(req, res) {
 "@
 Write-OK "api/auth/register.js"
 
-# ── 4. api/auth/login.js ──────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 Write-Info "Writing api/auth/login.js..."
 New-TextFile "api/auth/login.js" @"
 import bcrypt from 'bcryptjs';
@@ -169,7 +171,7 @@ export default async function handler(req, res) {
 "@
 Write-OK "api/auth/login.js"
 
-# ── 5. api/music/complete.js ──────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 Write-Info "Writing api/music/complete.js..."
 New-TextFile "api/music/complete.js" @"
 import mongoose from 'mongoose';
@@ -239,7 +241,7 @@ export default async function handler(req, res) {
 "@
 Write-OK "api/music/complete.js"
 
-# ── 6. api/wallet/withdraw.js ─────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 Write-Info "Writing api/wallet/withdraw.js..."
 New-TextFile "api/wallet/withdraw.js" @"
 import mongoose from 'mongoose';
@@ -259,6 +261,7 @@ const txSchema = new mongoose.Schema({
   walletAddr: String,
   status:     { type: String, default: 'pending' },
   txHash:     String,
+  plisioId:   String,
 }, { timestamps: true });
 
 const User        = mongoose.models.User        || mongoose.model('User', userSchema);
@@ -291,7 +294,7 @@ export default async function handler(req, res) {
 "@
 Write-OK "api/wallet/withdraw.js"
 
-# ── 7. api/wallet/history.js ──────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 Write-Info "Writing api/wallet/history.js..."
 New-TextFile "api/wallet/history.js" @"
 import mongoose from 'mongoose';
@@ -300,7 +303,7 @@ import { connectDB, setCors, handleOptions, requireAuth } from '../_middleware.j
 const txSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   type: String, amount: Number, currency: String,
-  walletAddr: String, status: String, txHash: String,
+  walletAddr: String, status: String, txHash: String, plisioId: String,
 }, { timestamps: true });
 
 const Transaction = mongoose.models.Transaction || mongoose.model('Transaction', txSchema);
@@ -318,7 +321,7 @@ export default async function handler(req, res) {
 "@
 Write-OK "api/wallet/history.js"
 
-# ── 8. api/referral/stats.js ──────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 Write-Info "Writing api/referral/stats.js..."
 New-TextFile "api/referral/stats.js" @"
 import mongoose from 'mongoose';
@@ -364,7 +367,7 @@ export default async function handler(req, res) {
 "@
 Write-OK "api/referral/stats.js"
 
-# ── 9. api/admin/stats.js ─────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 Write-Info "Writing api/admin/stats.js..."
 New-TextFile "api/admin/stats.js" @"
 import mongoose from 'mongoose';
@@ -394,14 +397,14 @@ export default async function handler(req, res) {
 "@
 Write-OK "api/admin/stats.js"
 
-# ── 10. api/admin/withdrawals.js ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 Write-Info "Writing api/admin/withdrawals.js..."
 New-TextFile "api/admin/withdrawals.js" @"
 import mongoose from 'mongoose';
 import { connectDB, setCors, handleOptions, requireAuth } from '../_middleware.js';
 
-const txSchema   = new mongoose.Schema({ userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, type: String, amount: Number, currency: String, walletAddr: String, status: { type: String, default: 'pending' }, txHash: String }, { timestamps: true });
-const userSchema = new mongoose.Schema({ username: String, balance: { type: Number, default: 0 } });
+const txSchema   = new mongoose.Schema({ userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, type: String, amount: Number, currency: String, walletAddr: String, status: { type: String, default: 'pending' }, txHash: String, plisioId: String }, { timestamps: true });
+const userSchema = new mongoose.Schema({ username: String, email: String, country: String, balance: { type: Number, default: 0 } });
 const Transaction = mongoose.models.Transaction || mongoose.model('Transaction', txSchema);
 const User        = mongoose.models.User        || mongoose.model('User', userSchema);
 
@@ -433,7 +436,203 @@ export default async function handler(req, res) {
 "@
 Write-OK "api/admin/withdrawals.js"
 
-# ── 11. vercel.json ───────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+Write-Info "Writing api/payment/create.js (Plisio)..."
+New-TextFile "api/payment/create.js" @"
+// Called when user clicks Upgrade on a plan
+import mongoose from 'mongoose';
+import { connectDB, setCors, handleOptions, requireAuth } from '../_middleware.js';
+
+const PLANS = {
+  silver: { name: 'Silver Plan', amount: 29 },
+  gold:   { name: 'Gold Plan',   amount: 89 },
+  elite:  { name: 'Elite Plan',  amount: 249 },
+};
+
+const userSchema = new mongoose.Schema({ username: String, email: String, activePlan: String }, { timestamps: true });
+const User = mongoose.models.User || mongoose.model('User', userSchema);
+
+export default async function handler(req, res) {
+  setCors(res);
+  if (handleOptions(req, res)) return;
+  if (req.method !== 'POST') return res.status(405).end();
+
+  const decoded = requireAuth(req, res);
+  if (!decoded) return;
+  await connectDB();
+
+  const { planId, currency = 'USDT' } = req.body;
+  if (!PLANS[planId]) return res.status(400).json({ message: 'Plan invalido' });
+
+  const user = await User.findById(decoded.id);
+  if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+  const plan    = PLANS[planId];
+  const orderId = 'SR-' + decoded.id + '-' + planId + '-' + Date.now();
+
+  const params = new URLSearchParams({
+    api_key:         process.env.PLISIO_SECRET_KEY,
+    order_name:      plan.name,
+    order_number:    orderId,
+    currency:        currency,
+    source_currency: 'USD',
+    source_amount:   plan.amount,
+    email:           user.email,
+    callback_url:    process.env.FRONTEND_URL + '/api/payment/webhook',
+    success_url:     process.env.FRONTEND_URL + '/dashboard?payment=success',
+    cancel_url:      process.env.FRONTEND_URL + '/plans?payment=cancelled',
+    plugin:          'soundrewards',
+    version:         '1.0.0',
+  });
+
+  const plisioRes = await fetch('https://plisio.net/api/v1/invoices/new?' + params.toString());
+  const data = await plisioRes.json();
+
+  if (data.status !== 'success') {
+    console.error('Plisio error:', data);
+    return res.status(500).json({ message: 'Error al crear factura', detail: data.data?.message });
+  }
+
+  res.json({ invoiceUrl: data.data.invoice_url, invoiceId: data.data.txn_id, orderId });
+}
+"@
+Write-OK "api/payment/create.js"
+
+# ─────────────────────────────────────────────────────────────────────────────
+Write-Info "Writing api/payment/webhook.js (Plisio)..."
+New-TextFile "api/payment/webhook.js" @"
+// Plisio calls this automatically when payment status changes
+import crypto from 'crypto';
+import mongoose from 'mongoose';
+import { connectDB, setCors } from '../_middleware.js';
+
+const userSchema = new mongoose.Schema({
+  username: String, email: String,
+  activePlan: { type: String, default: 'beginner' },
+  balance:    { type: Number, default: 0 },
+}, { timestamps: true });
+
+const txSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  type: String, amount: Number, currency: String,
+  status: { type: String, default: 'pending' },
+  plisioId: String, orderId: String,
+}, { timestamps: true });
+
+const User        = mongoose.models.User        || mongoose.model('User', userSchema);
+const Transaction = mongoose.models.Transaction || mongoose.model('Transaction', txSchema);
+
+function verifySignature(body, receivedSign) {
+  const params = { ...body };
+  delete params.verify_hash;
+  const sorted = Object.keys(params).sort().reduce((acc, k) => { acc[k] = params[k]; return acc; }, {});
+  const hash = crypto.createHmac('sha1', process.env.PLISIO_SECRET_KEY)
+    .update(new URLSearchParams(sorted).toString()).digest('hex');
+  return hash === receivedSign;
+}
+
+export default async function handler(req, res) {
+  setCors(res);
+  if (req.method !== 'POST') return res.status(405).end();
+  await connectDB();
+
+  const body = req.body;
+  if (!verifySignature(body, body.verify_hash)) {
+    console.error('Invalid Plisio signature');
+    return res.status(400).json({ message: 'Invalid signature' });
+  }
+
+  const { status, order_number, txn_id, source_amount, currency } = body;
+
+  // order_number = SR-{userId}-{planId}-{timestamp}
+  const parts  = order_number.split('-');
+  const userId = parts[1];
+  const planId = parts[2];
+
+  if (status === 'completed' || status === 'mismatch') {
+    const user = await User.findById(userId);
+    if (user) {
+      user.activePlan = planId;
+      await user.save();
+      await Transaction.create({
+        userId: user._id, type: 'deposit',
+        amount: parseFloat(source_amount), currency,
+        status: 'confirmed', plisioId: txn_id, orderId: order_number,
+      });
+      console.log('Plan upgraded: user ' + userId + ' -> ' + planId);
+    }
+  }
+
+  res.status(200).json({ status: 1 });
+}
+"@
+Write-OK "api/payment/webhook.js"
+
+# ─────────────────────────────────────────────────────────────────────────────
+Write-Info "Writing api/withdrawal/send.js (Plisio)..."
+New-TextFile "api/withdrawal/send.js" @"
+// Admin clicks Approve -> this sends crypto to user via Plisio
+import mongoose from 'mongoose';
+import { connectDB, setCors, handleOptions, requireAuth } from '../_middleware.js';
+
+const txSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  type: String, amount: Number, currency: String,
+  walletAddr: String, status: { type: String, default: 'pending' },
+  txHash: String, plisioId: String,
+}, { timestamps: true });
+
+const Transaction = mongoose.models.Transaction || mongoose.model('Transaction', txSchema);
+
+const CURRENCY_MAP = { USDT: 'USDT_TRX', BTC: 'BTC', ETH: 'ETH', LTC: 'LTC', DOGE: 'DOGE' };
+
+export default async function handler(req, res) {
+  setCors(res);
+  if (handleOptions(req, res)) return;
+  if (req.method !== 'POST') return res.status(405).end();
+
+  const decoded = requireAuth(req, res);
+  if (!decoded) return;
+  if (decoded.role !== 'admin') return res.status(403).json({ message: 'Admins only' });
+  await connectDB();
+
+  const { transactionId } = req.body;
+  if (!transactionId) return res.status(400).json({ message: 'transactionId requerido' });
+
+  const tx = await Transaction.findById(transactionId);
+  if (!tx) return res.status(404).json({ message: 'Transaccion no encontrada' });
+  if (tx.status !== 'pending') return res.status(400).json({ message: 'Esta transaccion ya fue procesada' });
+
+  const psys_cid = CURRENCY_MAP[tx.currency] || tx.currency;
+
+  const params = new URLSearchParams({
+    api_key:  process.env.PLISIO_SECRET_KEY,
+    psys_cid: psys_cid,
+    to:       tx.walletAddr,
+    amount:   tx.amount,
+    type:     'cash_out',
+    feePlan:  'normal',
+  });
+
+  const plisioRes = await fetch('https://plisio.net/api/v1/operations/withdraw?' + params.toString());
+  const data = await plisioRes.json();
+
+  if (data.status !== 'success') {
+    console.error('Plisio withdrawal error:', data);
+    return res.status(500).json({ message: 'Error al enviar retiro', detail: data.data?.message });
+  }
+
+  tx.status   = 'approved';
+  tx.plisioId = data.data.txn_id;
+  tx.txHash   = data.data.txn_id;
+  await tx.save();
+
+  res.json({ message: 'Retiro enviado exitosamente', plisioId: data.data.txn_id, newStatus: 'approved' });
+}
+"@
+Write-OK "api/withdrawal/send.js"
+
+# ─────────────────────────────────────────────────────────────────────────────
 Write-Info "Writing vercel.json..."
 New-TextFile "vercel.json" "{
   `"buildCommand`": `"cd frontend && npm install && npm run build`",
@@ -446,7 +645,7 @@ New-TextFile "vercel.json" "{
 "
 Write-OK "vercel.json"
 
-# ── 12. Root package.json ─────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 Write-Info "Writing root package.json..."
 New-TextFile "package.json" "{
   `"name`": `"soundrewards`",
@@ -459,21 +658,22 @@ New-TextFile "package.json" "{
   }
 }
 "
-Write-OK "package.json"
+Write-OK "root package.json"
 
-# ── 13. .env.example ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 Write-Info "Writing .env.example..."
-New-TextFile ".env.example" "# Copy this to .env for local development.
+New-TextFile ".env.example" "# Copy this file to .env for local dev.
 # In Vercel: Project -> Settings -> Environment Variables
 # NEVER commit .env to git.
 
 MONGODB_URI=mongodb+srv://USERNAME:PASSWORD@cluster0.xxxxx.mongodb.net/soundrewards
 JWT_SECRET=replace_this_with_any_long_random_string_min_32_chars
 FRONTEND_URL=https://your-project.vercel.app
+PLISIO_SECRET_KEY=your_plisio_secret_key_here
 "
 Write-OK ".env.example"
 
-# ── 14. frontend/.env ─────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 Write-Info "Updating frontend/.env..."
 $frontendEnvPath = Join-Path (Get-Location).Path "frontend/.env"
 if (Test-Path $frontendEnvPath) {
@@ -487,41 +687,54 @@ if (Test-Path $frontendEnvPath) {
 } else {
     [System.IO.File]::WriteAllText($frontendEnvPath, "VITE_API_URL=/api`n", (New-Object System.Text.UTF8Encoding $false))
 }
-Write-OK "frontend/.env updated (VITE_API_URL=/api)"
+Write-OK "frontend/.env updated"
 
-# ── 15. .gitignore ────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 Write-Info "Updating .gitignore..."
 $giPath = Join-Path (Get-Location).Path ".gitignore"
 if (!(Test-Path $giPath)) { "" | Out-File $giPath -Encoding utf8 }
 $gi = [System.IO.File]::ReadAllText($giPath)
-foreach ($line in @("node_modules/", ".env", ".env.local", "frontend/dist")) {
-    if ($gi -notmatch [regex]::Escape($line)) {
-        $gi = $gi.TrimEnd() + "`n$line"
-    }
+foreach ($line in @("node_modules/", ".env", ".env.local", "frontend/dist", "frontend/node_modules")) {
+    if ($gi -notmatch [regex]::Escape($line)) { $gi = $gi.TrimEnd() + "`n$line" }
 }
 [System.IO.File]::WriteAllText($giPath, $gi, (New-Object System.Text.UTF8Encoding $false))
 Write-OK ".gitignore updated"
 
-# ── 16. Git commit ────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+Write-Info "Removing node_modules from git tracking..."
+try {
+    git rm -r --cached node_modules 2>&1 | Out-Null
+} catch {}
+try {
+    git rm -r --cached frontend/node_modules 2>&1 | Out-Null
+} catch {}
+Write-OK "node_modules removed from git"
+
+# ─────────────────────────────────────────────────────────────────────────────
 Write-Info "Committing to git..."
 try {
     git add . 2>&1 | Out-Null
-    git commit -m "restructure: move to Vercel serverless api/ layout" 2>&1 | Out-Null
+    git commit -m "full setup: api routes, plisio payments, vercel config" 2>&1 | Out-Null
     Write-OK "git commit done"
 } catch {
-    Write-Info "No git repo yet or nothing to commit - skipping"
+    Write-Info "No git repo yet or nothing new to commit"
 }
 
-# ── DONE ──────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 Write-Host ""
-Write-Host "  All done! Your project is ready for Vercel." -ForegroundColor Green
+Write-Host "  ============================================" -ForegroundColor Green
+Write-Host "    All done! Ready to deploy to Vercel.    " -ForegroundColor Green
+Write-Host "  ============================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "  Next steps:" -ForegroundColor Cyan
-Write-Host "  1. git push origin main"
-Write-Host "  2. vercel.com -> New Project -> import this repo"
-Write-Host "  3. Add Environment Variables in Vercel dashboard:"
-Write-Host "       MONGODB_URI   = your Atlas connection string"
-Write-Host "       JWT_SECRET    = any random 32+ char string"
-Write-Host "       FRONTEND_URL  = https://your-project.vercel.app"
-Write-Host "  4. Deploy!"
+Write-Host "  Run this next:" -ForegroundColor Cyan
+Write-Host "    git push origin main" -ForegroundColor White
+Write-Host ""
+Write-Host "  Then in Vercel dashboard add these env vars:" -ForegroundColor Cyan
+Write-Host "    MONGODB_URI       = your Atlas connection string" -ForegroundColor White
+Write-Host "    JWT_SECRET        = any random 32+ char string" -ForegroundColor White
+Write-Host "    FRONTEND_URL      = https://your-project.vercel.app" -ForegroundColor White
+Write-Host "    PLISIO_SECRET_KEY = your key from plisio.net" -ForegroundColor White
+Write-Host ""
+Write-Host "  Plisio webhook URL (set in Plisio dashboard):" -ForegroundColor Cyan
+Write-Host "    https://your-project.vercel.app/api/payment/webhook" -ForegroundColor White
 Write-Host ""
