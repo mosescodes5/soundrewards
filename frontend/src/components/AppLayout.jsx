@@ -3,7 +3,7 @@ import { useState } from "react";
 import {
   Music2, Home, Wallet, Users, Crown, Bell,
   Settings, LogOut, BarChart3, Star, Search, X, Menu,
-  DollarSign, ArrowDownLeft,
+  DollarSign, ArrowDownLeft, Shield,
 } from "lucide-react";
 import { C } from "../theme";
 import { useBreakpoints } from "../hooks/useBreakpoints";
@@ -19,7 +19,8 @@ export function AppLayout({ page, onNavigate, onSignOut, user, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifOpen, setNotifOpen]     = useState(false);
 
-  const planColor = PLAN_COLORS[user?.activePlan] || C.muted;
+  const isAdmin    = user?.isAdmin === true;
+  const planColor  = PLAN_COLORS[user?.activePlan] || C.muted;
 
   const navItems = [
     { icon: Home,     label: t.nav.dashboard,  page: "dashboard" },
@@ -121,9 +122,12 @@ export function AppLayout({ page, onNavigate, onSignOut, user, children }) {
                   <n.icon size={18} color={C.muted} />{n.label}
                 </button>
               ))}
-              <button onClick={() => { onNavigate("admin"); setSidebarOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", background: C.purpleDim, border: `1px solid ${C.purple}44`, color: C.purple, padding: "12px 14px", cursor: "pointer", fontSize: 14, fontWeight: 700, borderRadius: 10, marginTop: 12 }}>
-                <BarChart3 size={16} />{t.nav.admin}
-              </button>
+              {/* Admin only */}
+              {isAdmin && (
+                <button onClick={() => { onNavigate("admin"); setSidebarOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", background: C.purpleDim, border: `1px solid ${C.purple}44`, color: C.purple, padding: "12px 14px", cursor: "pointer", fontSize: 14, fontWeight: 700, borderRadius: 10, marginTop: 12 }}>
+                  <BarChart3 size={16} />{t.nav.admin}
+                </button>
+              )}
               <button onClick={() => { onSignOut(); setSidebarOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", background: "transparent", border: "none", color: C.muted, padding: "12px 4px", cursor: "pointer", fontSize: 14, marginTop: 4 }}>
                 <LogOut size={16} />{t.nav.signout}
               </button>
@@ -149,6 +153,24 @@ export function AppLayout({ page, onNavigate, onSignOut, user, children }) {
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
           {navItems.map(n => <NavBtn key={n.page} item={n} />)}
+          {/* Admin link in sidebar — admin only */}
+          {isAdmin && (
+            <button
+              onClick={() => onNavigate("admin")}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "9px 12px", borderRadius: 9, border: "none", cursor: "pointer",
+                background: page === "admin" ? C.purpleDim : "transparent",
+                color: page === "admin" ? C.purple : C.muted,
+                fontWeight: page === "admin" ? 600 : 400,
+                fontSize: 13, width: "100%",
+                justifyContent: collapsed ? "center" : "flex-start",
+              }}
+            >
+              <Shield size={16} style={{ flexShrink: 0 }} />
+              {!collapsed && <span>{t.nav.admin}</span>}
+            </button>
+          )}
         </div>
 
         <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
@@ -210,9 +232,12 @@ export function AppLayout({ page, onNavigate, onSignOut, user, children }) {
                 </div>
               )}
             </div>
-            <button onClick={() => onNavigate("admin")} style={{ background: C.purpleDim, border: `1px solid ${C.purple}44`, color: C.purple, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
-              {t.nav.admin}
-            </button>
+            {/* Admin button in topbar — admin only */}
+            {isAdmin && (
+              <button onClick={() => onNavigate("admin")} style={{ background: C.purpleDim, border: `1px solid ${C.purple}44`, color: C.purple, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
+                {t.nav.admin}
+              </button>
+            )}
           </div>
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>{children}</div>
