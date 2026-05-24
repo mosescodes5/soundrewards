@@ -1,140 +1,120 @@
-// Dashboard.jsx
 /* eslint-disable react/prop-types */
-import { useState } from "react";
-import { Music2, Mail, Lock, User, Globe, Gift, Eye, EyeOff } from "lucide-react";
+import { Wallet, TrendingUp, Users, Activity, Music2, ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { C, card } from "../theme";
+import { earningsData } from "../data/mockData";
 import { useBreakpoints } from "../hooks/useBreakpoints";
 import { useLang } from "../context/LangContext";
-import { LangSelector } from "../components/LangSelector";
+import { StatCard, Badge, CustomTooltip } from "../components/SharedComponents";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-
-export default function AuthPage({ mode, onNavigate }) {
+export default function Dashboard({ user }) {
   const { t } = useLang();
   const { isMobile } = useBreakpoints();
-  const [show, setShow] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ username: "", email: "", password: "", country: "MX", referralCode: "" });
-  const [error, setError] = useState("");
-  const isReg = mode === "register";
-  const a = t.auth;
+  const d = t.dashboard;
 
-  const handleSubmit = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const endpoint = isReg ? "/api/auth/register" : "/api/auth/login";
-      const body = isReg ? form : { email: form.email, password: form.password };
-      const res = await fetch(`${API_URL}${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || t.common.error);
-      localStorage.setItem("sr_token", data.token);
-      localStorage.setItem("sr_user", JSON.stringify(data.user));
-      onNavigate("dashboard");
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
+  const balance     = user?.balance     ?? 0;
+  const totalEarned = user?.totalEarned ?? 0;
+  const plan        = user?.activePlan  ?? "beginner";
+
+  const txns = [
+    { type: "earn",     desc: "Midnight Frequencies", amount: "+$0.45", time: "2m",  color: C.success },
+    { type: "earn",     desc: "Neon Pulse",            amount: "+$0.52", time: "14m", color: C.success },
+    { type: "withdraw", desc: "USDT TRC20",            amount: "-$50.00",time: "1h",  color: C.danger },
+    { type: "referral", desc: "Referral: user_mx",     amount: "+$1.20", time: "3h",  color: C.teal },
+    { type: "deposit",  desc: "BTC Deposito",          amount: "+$89.00",time: "1d",  color: C.gold },
+  ];
+
+  const PLAN_LIMITS = { beginner: 1.5, silver: 5, gold: 12, elite: 35 };
+  const dailyMax = PLAN_LIMITS[plan] || 1.5;
+
+  const txIcon = (type, color) => {
+    const p = { size: 13, color };
+    if (type === "earn")     return <Music2 {...p} />;
+    if (type === "withdraw") return <ArrowUpRight {...p} />;
+    if (type === "referral") return <Users {...p} />;
+    return <ArrowDownLeft {...p} />;
   };
 
-  const field = (label, icon, input) => (
-    <div style={{ marginBottom: 14 }}>
-      <label style={{ display: "block", color: C.muted, fontSize: 11, marginBottom: 5, fontWeight: 600 }}>{label}</label>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 9, padding: "10px 13px" }}>
-        {icon}
-        {input}
-      </div>
-    </div>
-  );
-
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
-      <div style={{ position: "absolute", top: 20, left: isMobile ? 20 : 40 }}>
-        <button onClick={() => onNavigate("landing")} style={{ display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", cursor: "pointer" }}>
-          <Music2 size={16} color={C.gold} />
-          <span style={{ fontWeight: 800, color: C.text, fontSize: 14 }}>{t.brand}</span>
-        </button>
-      </div>
-      <div style={{ position: "absolute", top: 18, right: isMobile ? 20 : 40 }}>
-        <LangSelector />
+    <div>
+      {/* STAT CARDS */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
+        <StatCard label={d.balance}       value={`$${balance.toFixed(2)}`}      sub={`≈ ${(balance * 0.0000103).toFixed(6)} BTC`} icon={Wallet}    trend="+$0.00 hoy" />
+        <StatCard label={d.earned}        value={`$${totalEarned.toFixed(2)}`}   sub={d.allTime}                                   icon={TrendingUp} accent={C.tealDim} />
+        <StatCard label={d.referralEarn}  value="$0.00"                          sub={`0 ${d.activeRefs}`}                         icon={Users}      accent={C.purpleDim} />
+        <StatCard label={d.dailyProgress} value="$0.00"                          sub={`de $${dailyMax.toFixed(2)} ${d.dailyMax}`}  icon={Activity}   accent={C.tealDim} />
       </div>
 
-      <div style={{ width: "100%", maxWidth: 400 }}>
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{ width: 52, height: 52, borderRadius: 13, background: C.goldDim, border: `1px solid ${C.gold}44`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
-            <Music2 size={24} color={C.gold} />
+      {/* CHART + TASKS */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 300px", gap: 16, marginBottom: 16 }}>
+        <div style={{ ...card(), padding: "20px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+            <div>
+              <p style={{ color: C.muted, fontSize: 11, margin: "0 0 3px", textTransform: "uppercase", letterSpacing: 0.5 }}>{d.weeklyEarnings}</p>
+              <p style={{ color: C.text, fontSize: 20, fontWeight: 700, margin: 0 }}>$0.00 <span style={{ fontSize: 12, color: C.success }}>+0%</span></p>
+            </div>
+            <Badge color={C.gold} bg={C.goldDim}>{plan.charAt(0).toUpperCase() + plan.slice(1)} Plan</Badge>
           </div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 6px" }}>{isReg ? a.registerTitle : a.loginTitle}</h1>
-          <p style={{ color: C.muted, margin: 0, fontSize: 14 }}>{isReg ? a.registerSub : a.loginSub}</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <AreaChart data={earningsData}>
+              <defs>
+                <linearGradient id="eg" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor={C.gold} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={C.gold} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="day" tick={{ fill: C.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis hide />
+              <Tooltip content={<CustomTooltip />} />
+              <Area type="monotone" dataKey="earned" stroke={C.gold} strokeWidth={2} fill="url(#eg)" dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
 
-        <div style={{ ...card(), padding: "28px" }}>
-          {error && (
-            <div style={{ background: C.dangerDim, border: `1px solid ${C.danger}44`, borderRadius: 8, padding: "10px 14px", color: C.danger, fontSize: 13, marginBottom: 16 }}>
-              {error}
-            </div>
-          )}
-
-          {isReg && field(a.username, <User size={15} color={C.muted} />,
-            <input value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder="tu_usuario" style={{ background: "transparent", border: "none", outline: "none", color: C.text, fontSize: 14, flex: 1, minWidth: 0 }} />
-          )}
-
-          {field(a.email, <Mail size={15} color={C.muted} />,
-            <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="tu@correo.com" style={{ background: "transparent", border: "none", outline: "none", color: C.text, fontSize: 14, flex: 1, minWidth: 0 }} />
-          )}
-
-          <div style={{ marginBottom: isReg ? 14 : 20 }}>
-            <label style={{ display: "block", color: C.muted, fontSize: 11, marginBottom: 5, fontWeight: 600 }}>{a.password}</label>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 9, padding: "10px 13px" }}>
-              <Lock size={15} color={C.muted} />
-              <input type={show ? "text" : "password"} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" style={{ background: "transparent", border: "none", outline: "none", color: C.text, fontSize: 14, flex: 1, minWidth: 0 }} />
-              <button onClick={() => setShow(!show)} style={{ background: "none", border: "none", cursor: "pointer", color: C.muted, padding: 0, flexShrink: 0 }}>
-                {show ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
-            </div>
-          </div>
-
-          {isReg && (
-            <>
-              {field(a.country, <Globe size={15} color={C.muted} />,
-                <select value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} style={{ background: "transparent", border: "none", outline: "none", color: C.text, fontSize: 14, flex: 1 }}>
-                  <option value="US">{a.countryUS}</option>
-                  <option value="MX">{a.countryMX}</option>
-                  <option value="HN">{a.countryHN}</option>
-                </select>
-              )}
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", color: C.muted, fontSize: 11, marginBottom: 5, fontWeight: 600 }}>{a.referralCode} <span style={{ color: C.dim }}>{a.optional}</span></label>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 9, padding: "10px 13px" }}>
-                  <Gift size={15} color={C.muted} />
-                  <input value={form.referralCode} onChange={e => setForm(f => ({ ...f, referralCode: e.target.value }))} placeholder="CODIGO-REF" style={{ background: "transparent", border: "none", outline: "none", color: C.text, fontSize: 14, flex: 1, minWidth: 0 }} />
-                </div>
+        <div style={{ ...card(), padding: "20px" }}>
+          <p style={{ color: C.muted, fontSize: 11, margin: "0 0 14px", textTransform: "uppercase", letterSpacing: 0.5 }}>{d.todayTasks}</p>
+          {[
+            { label: d.tracksListened, val: 0,  max: 40,      color: C.gold },
+            { label: d.dailyEarning,   val: 0,  max: dailyMax, color: C.teal, prefix: "$" },
+            { label: d.referralTasks,  val: 0,  max: 5,        color: C.purple },
+          ].map(p => (
+            <div key={p.label} style={{ marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                <span style={{ fontSize: 12, color: C.muted }}>{p.label}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{p.prefix||""}{p.val}/{p.prefix||""}{p.max}</span>
               </div>
-            </>
-          )}
-
-          <button onClick={handleSubmit} disabled={loading} style={{ width: "100%", background: loading ? C.dim : C.gold, border: "none", color: "#000", borderRadius: 10, padding: "13px", cursor: loading ? "not-allowed" : "pointer", fontSize: 15, fontWeight: 800, marginBottom: 14 }}>
-            {loading ? t.common.loading : (isReg ? a.registerBtn : a.loginBtn)}
-          </button>
-
-          {!isReg && (
-            <div style={{ textAlign: "center", marginBottom: 12 }}>
-              <span style={{ color: C.gold, fontSize: 13, cursor: "pointer" }}>{a.forgot}</span>
+              <div style={{ height: 5, background: C.surface2, borderRadius: 3 }}>
+                <div style={{ height: "100%", width: `${(p.val / p.max) * 100}%`, background: p.color, borderRadius: 3 }} />
+              </div>
             </div>
-          )}
-
-          <p style={{ textAlign: "center", color: C.muted, fontSize: 13, margin: 0 }}>
-            {isReg ? a.altRegister : a.altLogin}{" "}
-            <span onClick={() => onNavigate(isReg ? "login" : "register")} style={{ color: C.gold, cursor: "pointer", fontWeight: 600 }}>
-              {isReg ? a.altRegisterBtn : a.altLoginBtn}
-            </span>
-          </p>
+          ))}
+          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+            <p style={{ color: C.muted, fontSize: 11, margin: "0 0 6px" }}>{d.dailyReset}</p>
+            <p style={{ color: C.text, fontWeight: 700, fontSize: 20, margin: 0 }}>00:00:00</p>
+          </div>
         </div>
+      </div>
+
+      {/* RECENT TRANSACTIONS */}
+      <div style={{ ...card(), padding: "20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>{d.recentTx}</p>
+          <span style={{ color: C.gold, fontSize: 12, cursor: "pointer" }}>{d.viewAll}</span>
+        </div>
+        {txns.map((tx, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: i < txns.length - 1 ? `1px solid ${C.border}` : "none" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: tx.color + "22", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                {txIcon(tx.type, tx.color)}
+              </div>
+              <div>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: C.text }}>{tx.desc}</p>
+                <p style={{ margin: 0, fontSize: 11, color: C.muted }}>{tx.time}</p>
+              </div>
+            </div>
+            <span style={{ color: tx.color, fontWeight: 700, fontSize: 13 }}>{tx.amount}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
