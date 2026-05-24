@@ -1,35 +1,46 @@
 // ReferralPage.jsx
+/* eslint-disable react/prop-types */
 import { useState } from "react";
-import { Users, DollarSign, Award, Copy, Check } from "lucide-react";
+import { Users, DollarSign, Award, Copy, Check, Send } from "lucide-react";
 import { C, card } from "../theme";
 import { plans } from "../data/mockData";
 import { useBreakpoints } from "../hooks/useBreakpoints";
 import { useLang } from "../context/LangContext";
 import { StatCard, Badge } from "../components/SharedComponents";
 
-const refs = [
-  { user: "carlos_mx", country: "🇲🇽", plan: "Gold",     earned: "$8.40",  joined: "Ene 12", active: true },
-  { user: "sara_hn",   country: "🇭🇳", plan: "Silver",   earned: "$2.10",  joined: "Feb 3",  active: true },
-  { user: "juan_mx",   country: "🇲🇽", plan: "Beginner", earned: "$0.30",  joined: "Mar 1",  active: false },
-  { user: "amy_us",    country: "🇺🇸", plan: "Elite",    earned: "$24.50", joined: "Dic 28", active: true },
-  { user: "pedro_hn",  country: "🇭🇳", plan: "Silver",   earned: "$3.20",  joined: "Feb 15", active: true },
-];
-
-export default function ReferralPage() {
+export default function ReferralPage({ user }) {
   const { t } = useLang();
   const { isMobile } = useBreakpoints();
   const [copied, setCopied] = useState(false);
   const r = t.referral;
 
-  const copy = () => { navigator.clipboard?.writeText("MIKE-SR24"); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const referralCode = user?.referralCode || "—";
+  const referralLink = `https://soundrewards.app/r/${referralCode.toLowerCase()}`;
+
+  const copy = (text) => {
+    navigator.clipboard?.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const shareVia = (platform) => {
+    const msg = `Join SoundRewards and earn crypto listening to music! Use my code: ${referralCode} — ${referralLink}`;
+    const urls = {
+      Telegram:  `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(msg)}`,
+      WhatsApp:  `https://wa.me/?text=${encodeURIComponent(msg)}`,
+      Twitter:   `https://twitter.com/intent/tweet?text=${encodeURIComponent(msg)}`,
+    };
+    if (urls[platform]) window.open(urls[platform], "_blank", "noopener");
+    else copy(referralLink);
+  };
 
   return (
     <div>
       {/* STATS */}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3,1fr)", gap: 12, marginBottom: 20 }}>
-        <StatCard label={r.totalRefs} value="14"    sub={`5 ${r.thisMonth}`}          icon={Users} />
-        <StatCard label={r.earnings}  value="$48.60" sub={`8% ${r.commission} (Gold)`} icon={DollarSign} accent={C.tealDim} />
-        <StatCard label={r.rank}      value="#12"    sub={r.global}                    icon={Award} accent={C.purpleDim} />
+        <StatCard label={r.totalRefs} value="0"    sub={`0 ${r.thisMonth}`}           icon={Users} />
+        <StatCard label={r.earnings}  value="$0.00" sub={`0% commission`}              icon={DollarSign} accent={C.tealDim} />
+        <StatCard label={r.rank}      value="—"     sub={r.global}                     icon={Award} accent={C.purpleDim} />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
@@ -38,19 +49,30 @@ export default function ReferralPage() {
           <p style={{ color: C.muted, fontSize: 11, margin: "0 0 10px", fontWeight: 600 }}>{r.yourCode}</p>
           <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
             <div style={{ flex: 1, background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 9, padding: "11px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontWeight: 800, fontSize: 16, letterSpacing: 2, color: C.gold }}>MIKE-SR24</span>
-              <button onClick={copy} style={{ background: C.goldDim, border: "none", borderRadius: 6, padding: "5px 10px", cursor: "pointer", color: C.gold, display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 600 }}>
-                {copied ? <Check size={12} /> : <Copy size={12} />}{copied ? "¡Listo!" : t.wallet.copyBtn}
+              <span style={{ fontWeight: 800, fontSize: 16, letterSpacing: 2, color: C.gold }}>{referralCode}</span>
+              <button onClick={() => copy(referralCode)} style={{ background: C.goldDim, border: "none", borderRadius: 6, padding: "5px 10px", cursor: "pointer", color: C.gold, display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 600 }}>
+                {copied ? <Check size={12} /> : <Copy size={12} />}{copied ? "Copied!" : "Copy"}
               </button>
             </div>
           </div>
           <p style={{ color: C.muted, fontSize: 11, margin: "0 0 8px" }}>{r.shareLink}</p>
-          <div style={{ background: C.surface2, borderRadius: 7, padding: "9px 12px", marginBottom: 12 }}>
-            <span style={{ fontSize: 11, color: C.muted }}>soundrewards.app/r/mike-sr24</span>
+          <div style={{ background: C.surface2, borderRadius: 7, padding: "9px 12px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <span style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{referralLink}</span>
+            <button onClick={() => copy(referralLink)} style={{ background: "transparent", border: "none", cursor: "pointer", color: copied ? C.success : C.muted, flexShrink: 0 }}>
+              <Copy size={12} />
+            </button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6 }}>
-            {["Telegram", "WhatsApp", "Twitter", "Copiar"].map(s => (
-              <button key={s} style={{ background: C.surface2, border: `1px solid ${C.border}`, color: C.muted, borderRadius: 7, padding: "7px 0", cursor: "pointer", fontSize: 10, textAlign: "center" }}>{s}</button>
+            {["Telegram", "WhatsApp", "Twitter", "Copy"].map(s => (
+              <button
+                key={s}
+                onClick={() => shareVia(s)}
+                style={{ background: C.surface2, border: `1px solid ${C.border}`, color: C.muted, borderRadius: 7, padding: "7px 0", cursor: "pointer", fontSize: 10, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, transition: "border-color 0.2s, color 0.2s" }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}
+              >
+                <Send size={9} />{s}
+              </button>
             ))}
           </div>
         </div>
@@ -73,23 +95,13 @@ export default function ReferralPage() {
         </div>
       </div>
 
-      {/* REFERRAL NETWORK */}
-      <div style={{ ...card(), padding: 0 }}>
-        <div style={{ padding: "14px 18px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-          <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>{r.network}</p>
-          <Badge color={C.teal} bg={C.tealDim}>14 {r.total} · {refs.filter(x => x.active).length} {r.active}</Badge>
+      {/* REFERRAL NETWORK - empty state for new users */}
+      <div style={{ ...card(), padding: "40px 20px", textAlign: "center" }}>
+        <div style={{ width: 48, height: 48, borderRadius: "50%", background: C.surface2, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
+          <Users size={22} color={C.muted} />
         </div>
-        {refs.map((rf, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 18px", borderBottom: i < refs.length - 1 ? `1px solid ${C.border}` : "none" }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: C.surface2, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, color: C.text, flexShrink: 0 }}>{rf.user[0].toUpperCase()}</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: "0 0 2px", fontWeight: 600, fontSize: 13 }}>{rf.user} {rf.country}</p>
-              <p style={{ margin: 0, color: C.muted, fontSize: 11 }}>{r.joined} {rf.joined}</p>
-            </div>
-            <span style={{ color: C.success, fontWeight: 700, fontSize: 13 }}>{rf.earned}</span>
-            <div style={{ width: 7, height: 7, borderRadius: "50%", background: rf.active ? C.success : C.dim, flexShrink: 0 }} />
-          </div>
-        ))}
+        <p style={{ fontWeight: 700, color: C.text, fontSize: 15, margin: "0 0 6px" }}>No referrals yet</p>
+        <p style={{ color: C.muted, fontSize: 13, margin: 0 }}>Share your code and start earning commissions when friends join!</p>
       </div>
     </div>
   );

@@ -3,17 +3,16 @@ import mongoose from "mongoose";
 
 const txSchema = new mongoose.Schema(
   {
-    user:   { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    type:   { type: String, enum: ["earn", "withdraw", "bonus"], required: true },
-    amount: { type: Number, required: true },
-    coin:   { type: String, default: null },       // for withdrawals: BTC / USDT / etc.
-    wallet: { type: String, default: null },        // destination wallet address
-    desc:   { type: String, default: "" },
-    status: {
-      type: String,
-      enum: ["pending", "approved", "rejected"],
-      default: "pending",
-    },
+    userId:      { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    type:        { type: String, enum: ["earn", "withdraw", "deposit", "bonus", "referral"], required: true },
+    amount:      { type: Number, required: true },
+    currency:    { type: String, default: "USD" },
+    coin:        { type: String, default: null },
+    wallet:      { type: String, default: null },
+    description: { type: String, default: "" },
+    plisioId:    { type: String, default: null },
+    orderId:     { type: String, default: null },
+    status:      { type: String, enum: ["pending", "confirmed", "approved", "rejected"], default: "pending" },
   },
   { timestamps: true }
 );

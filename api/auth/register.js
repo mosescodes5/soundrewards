@@ -4,6 +4,8 @@ import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import { connectDB, setCors, handleOptions } from '../_middleware.js';
 
+const REGISTRATION_BONUS = 1.00; // $1.00 welcome bonus
+
 const userSchema = new mongoose.Schema({
   username:       { type: String, required: true, unique: true, trim: true },
   email:          { type: String, required: true, unique: true, lowercase: true },
@@ -19,7 +21,14 @@ const userSchema = new mongoose.Schema({
   lastDailyReset: { type: Date, default: Date.now },
 }, { timestamps: true });
 
-const User = mongoose.models.User || mongoose.model('User', userSchema);
+const txSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  type: String, amount: Number, currency: String,
+  status: { type: String, default: 'confirmed' }, description: String,
+}, { timestamps: true });
+
+const User        = mongoose.models.User        || mongoose.model('User', userSchema);
+const Transaction = mongoose.models.Transaction || mongoose.model('Transaction', txSchema);
 
 export default async function handler(req, res) {
   setCors(res);
@@ -35,7 +44,7 @@ export default async function handler(req, res) {
     if (exists) return res.status(400).json({ message: 'Username or email already taken' });
 
     const hashed = await bcrypt.hash(password, 12);
-    const myCode = username.toUpperCase() + '-' + Math.random().toString(36).slice(2,6).toUpperCase();
+    const myCode = username.toUpperCase().slice(0, 6) + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
 
     let referredBy = null;
     if (referralCode) {
@@ -43,12 +52,35 @@ export default async function handler(req, res) {
       if (referrer) referredBy = referrer._id;
     }
 
-    const user  = await User.create({ username, email, password: hashed, country: country || 'US', referralCode: myCode, referredBy });
+    // Create user with registration bonus
+    const user = await User.create({
+      username, email, password: hashed,
+      country: country || 'US',
+      referralCode: myCode, referredBy,
+      balance: REGISTRATION_BONUS,
+      totalEarned: REGISTRATION_BONUS,
+      activePlan: 'beginner',
+    });
+
+    // Record welcome bonus transaction
+    await Transaction.create({
+      userId: user._id, type: 'bonus',
+      amount: REGISTRATION_BONUS, currency: 'USD',
+      status: 'confirmed', description: 'Welcome registration bonus',
+    });
+
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '30d' });
 
     return res.status(201).json({
       token,
-      user: { id: user._id, username, email, country: user.country, balance: 0, referralCode: myCode, activePlan: 'beginner' },
+      user: {
+        id: user._id, username, email,
+        country: user.country,
+        balance: REGISTRATION_BONUS,
+        totalEarned: REGISTRATION_BONUS,
+        referralCode: myCode,
+        activePlan: 'beginner',
+      },
     });
   } catch (err) {
     console.error('REGISTER ERROR:', err.message);

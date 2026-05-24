@@ -3,9 +3,12 @@
 import { Router } from "express";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import Transaction from "../models/Transaction.js";
 
 const router = Router();
 const sign = id => jwt.sign({ id }, process.env.JWT_SECRET || "dev-secret", { expiresIn: "7d" });
+
+const REGISTRATION_BONUS = 1.00; // $1.00 welcome bonus
 
 // POST /api/auth/register
 router.post("/register", async (req, res) => {
@@ -25,7 +28,27 @@ router.post("/register", async (req, res) => {
       if (referrer) referredBy = referrer._id;
     }
 
-    const user = await User.create({ username, email, passwordHash: password, country, referredBy });
+    // Create user with registration bonus
+    const user = await User.create({
+      username,
+      email,
+      passwordHash: password,
+      country,
+      referredBy,
+      balance: REGISTRATION_BONUS,
+      totalEarned: REGISTRATION_BONUS,
+    });
+
+    // Record the bonus as a transaction
+    await Transaction.create({
+      userId: user._id,
+      type: "bonus",
+      amount: REGISTRATION_BONUS,
+      currency: "USD",
+      status: "confirmed",
+      description: "Welcome registration bonus",
+    });
+
     res.status(201).json({ token: sign(user._id), user: user.toSafeObject() });
   } catch (err) {
     res.status(500).json({ message: err.message });

@@ -1,4 +1,4 @@
-// User.js — DB schema (MongoDB/Postgres)
+// User.js — DB schema (MongoDB)
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema({
   email:        { type: String, required: true, unique: true, lowercase: true },
   passwordHash: { type: String, required: true },
   country:      { type: String, default: "MX" },
-  plan:         { type: String, enum: ["beginner","silver","gold","elite"], default: "beginner" },
+  activePlan:   { type: String, enum: ["beginner","silver","gold","elite"], default: "beginner" },
   balance:      { type: Number, default: 0 },
   totalEarned:  { type: Number, default: 0 },
   referralCode: { type: String, unique: true },
@@ -41,7 +41,7 @@ userSchema.methods.toSafeObject = function () {
     username:     this.username,
     email:        this.email,
     country:      this.country,
-    plan:         this.plan,
+    activePlan:   this.activePlan,   // ← fixed: was "plan"
     balance:      this.balance,
     totalEarned:  this.totalEarned,
     referralCode: this.referralCode,

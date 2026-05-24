@@ -1,5 +1,6 @@
 /* eslint-disable react/prop-types */
-import { Wallet, TrendingUp, Users, Activity, Music2, ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Wallet, TrendingUp, Users, Activity, Music2, ArrowUpRight, ArrowDownLeft, Gift } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { C, card } from "../theme";
 import { earningsData } from "../data/mockData";
@@ -16,13 +17,37 @@ export default function Dashboard({ user }) {
   const totalEarned = user?.totalEarned ?? 0;
   const plan        = user?.activePlan  ?? "beginner";
 
-  const txns = [
-    { type: "earn",     desc: "Midnight Frequencies", amount: "+$0.45", time: "2m",  color: C.success },
-    { type: "earn",     desc: "Neon Pulse",            amount: "+$0.52", time: "14m", color: C.success },
-    { type: "withdraw", desc: "USDT TRC20",            amount: "-$50.00",time: "1h",  color: C.danger },
-    { type: "referral", desc: "Referral: user_mx",     amount: "+$1.20", time: "3h",  color: C.teal },
-    { type: "deposit",  desc: "BTC Deposito",          amount: "+$89.00",time: "1d",  color: C.gold },
-  ];
+  const [txns, setTxns]     = useState([]);
+  const [timer, setTimer]   = useState("");
+
+  // Daily reset countdown (midnight)
+  useEffect(() => {
+    const tick = () => {
+      const now  = new Date();
+      const next = new Date(now);
+      next.setHours(24, 0, 0, 0);
+      const diff = next - now;
+      const h = String(Math.floor(diff / 3_600_000)).padStart(2, "0");
+      const m = String(Math.floor((diff % 3_600_000) / 60_000)).padStart(2, "0");
+      const s = String(Math.floor((diff % 60_000) / 1_000)).padStart(2, "0");
+      setTimer(`${h}:${m}:${s}`);
+    };
+    tick();
+    const id = setInterval(tick, 1_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Fetch real transactions
+  useEffect(() => {
+    const token = localStorage.getItem("sr_token");
+    if (!token) return;
+    fetch("/api/wallet/history", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data.transactions)) setTxns(data.transactions.slice(0, 5)); })
+      .catch(() => {});
+  }, []);
 
   const PLAN_LIMITS = { beginner: 1.5, silver: 5, gold: 12, elite: 35 };
   const dailyMax = PLAN_LIMITS[plan] || 1.5;
@@ -32,7 +57,21 @@ export default function Dashboard({ user }) {
     if (type === "earn")     return <Music2 {...p} />;
     if (type === "withdraw") return <ArrowUpRight {...p} />;
     if (type === "referral") return <Users {...p} />;
+    if (type === "bonus")    return <Gift {...p} />;
     return <ArrowDownLeft {...p} />;
+  };
+
+  const txColor = (type) => {
+    if (type === "earn")    return C.success;
+    if (type === "withdraw") return C.danger;
+    if (type === "bonus")   return C.gold;
+    if (type === "referral") return C.teal;
+    return C.teal;
+  };
+
+  const formatTxAmount = (tx) => {
+    const sign = tx.type === "withdraw" ? "-" : "+";
+    return `${sign}$${parseFloat(tx.amount || 0).toFixed(2)}`;
   };
 
   return (
@@ -74,9 +113,9 @@ export default function Dashboard({ user }) {
         <div style={{ ...card(), padding: "20px" }}>
           <p style={{ color: C.muted, fontSize: 11, margin: "0 0 14px", textTransform: "uppercase", letterSpacing: 0.5 }}>{d.todayTasks}</p>
           {[
-            { label: d.tracksListened, val: 0,  max: 40,      color: C.gold },
-            { label: d.dailyEarning,   val: 0,  max: dailyMax, color: C.teal, prefix: "$" },
-            { label: d.referralTasks,  val: 0,  max: 5,        color: C.purple },
+            { label: d.tracksListened, val: 0, max: 40,      color: C.gold },
+            { label: d.dailyEarning,   val: 0, max: dailyMax, color: C.teal, prefix: "$" },
+            { label: d.referralTasks,  val: 0, max: 5,        color: C.purple },
           ].map(p => (
             <div key={p.label} style={{ marginBottom: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
@@ -90,7 +129,7 @@ export default function Dashboard({ user }) {
           ))}
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
             <p style={{ color: C.muted, fontSize: 11, margin: "0 0 6px" }}>{d.dailyReset}</p>
-            <p style={{ color: C.text, fontWeight: 700, fontSize: 20, margin: 0 }}>00:00:00</p>
+            <p style={{ color: C.text, fontWeight: 700, fontSize: 20, margin: 0, fontVariantNumeric: "tabular-nums" }}>{timer || "00:00:00"}</p>
           </div>
         </div>
       </div>
@@ -99,22 +138,32 @@ export default function Dashboard({ user }) {
       <div style={{ ...card(), padding: "20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>{d.recentTx}</p>
-          <span style={{ color: C.gold, fontSize: 12, cursor: "pointer" }}>{d.viewAll}</span>
         </div>
-        {txns.map((tx, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: i < txns.length - 1 ? `1px solid ${C.border}` : "none" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: tx.color + "22", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                {txIcon(tx.type, tx.color)}
-              </div>
-              <div>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: C.text }}>{tx.desc}</p>
-                <p style={{ margin: 0, fontSize: 11, color: C.muted }}>{tx.time}</p>
-              </div>
-            </div>
-            <span style={{ color: tx.color, fontWeight: 700, fontSize: 13 }}>{tx.amount}</span>
+
+        {txns.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "24px 0" }}>
+            <p style={{ color: C.muted, fontSize: 13, margin: "0 0 6px" }}>No transactions yet</p>
+            <p style={{ color: C.dim, fontSize: 12, margin: 0 }}>Start listening to music to earn rewards!</p>
           </div>
-        ))}
+        ) : (
+          txns.map((tx, i) => {
+            const color = txColor(tx.type);
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: i < txns.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: color + "22", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    {txIcon(tx.type, color)}
+                  </div>
+                  <div>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: C.text }}>{tx.description || tx.type}</p>
+                    <p style={{ margin: 0, fontSize: 11, color: C.muted }}>{new Date(tx.createdAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                <span style={{ color, fontWeight: 700, fontSize: 13 }}>{formatTxAmount(tx)}</span>
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );
